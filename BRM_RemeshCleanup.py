@@ -19,8 +19,8 @@ bl_info = {
     "name": "BRM_RemeshCleanup",
     "category": "3D View",
     "author": "Bram Eulaers",
-    "description": "Clean up non-manifold geometry that is usually generated from the Remesh Modifier. Command: brm.remeshcleanup",
-    "version": (0, 1)
+    "description": "Clean up non-manifold geometry that is usually generated from the Remesh Modifier",
+    "version": (0, 2)
     }
 
 import bpy
@@ -35,41 +35,17 @@ class BRM_RemeshCleanup(bpy.types.Operator):
     def execute(self, context):
         
         cleaning = True
-        #test if any non-manifold verts
-        bpy.ops.object.mode_set(mode='OBJECT')
-        me = bpy.context.object.data       
-        bm = bmesh.new()  
-        bm.from_mesh(me)  
-        nmvcount = 0
-        for v in bm.verts:
-            if not v.is_manifold:
-                nmvcount+=1
-        if nmvcount > 0:
-            cleaning = True
-        else:
-            cleaning = False
-            print("mesh already clean")
-        
+
         #cleaning loop
         while cleaning:
-            
-            # MACRO - dissolve and patch up broken vertices 
-            bpy.ops.object.mode_set(mode='EDIT')
-            bpy.ops.mesh.select_all(action='DESELECT')
-            context.tool_settings.mesh_select_mode = (True, False, False)
-            bpy.ops.mesh.select_non_manifold()
-            bpy.ops.mesh.dissolve_verts()
-            bpy.ops.mesh.poke()
-            bpy.ops.mesh.select_all(action='DESELECT')
-            bpy.ops.mesh.select_non_manifold()
-            bpy.ops.mesh.delete(type='VERT')
-            bpy.ops.mesh.fill_holes(sides=0)
-            
-            # Find average edge length
+        #{  
+     
             bpy.ops.object.mode_set(mode='OBJECT')
             me = bpy.context.object.data       
             bm = bmesh.new()  
-            bm.from_mesh(me)  
+            bm.from_mesh(me)
+            
+            # Find average edge size
             average_lenght = 0
             edgecount = 0
             for e in bm.edges:
@@ -81,21 +57,21 @@ class BRM_RemeshCleanup(bpy.types.Operator):
             bpy.ops.object.mode_set(mode='EDIT')
             bpy.ops.mesh.select_all(action='SELECT')
             bpy.ops.mesh.remove_doubles(threshold=(average_lenght/3))
-            bpy.ops.mesh.select_all(action='DESELECT')
             
-            #test if more non-manifold verts
-            bpy.ops.object.mode_set(mode='OBJECT')
-            me = bpy.context.object.data       
-            bm = bmesh.new()  
-            bm.from_mesh(me)  
+            # Count non-manifold verts          
             nmvcount = 0
             for v in bm.verts:
                 if not v.is_manifold:
                     nmvcount+=1
-            if nmvcount > 0:
+            if nmvcount is 0:
+                cleaning = False
+            else:
+                cleaning = True
             
-                # Run Clean macro again
+                # MACRO - dissolve and patch up broken vertices 
                 bpy.ops.object.mode_set(mode='EDIT')
+                bpy.ops.mesh.select_all(action='DESELECT')
+                context.tool_settings.mesh_select_mode = (True, False, False)
                 bpy.ops.mesh.select_non_manifold()
                 bpy.ops.mesh.dissolve_verts()
                 bpy.ops.mesh.poke()
@@ -103,30 +79,18 @@ class BRM_RemeshCleanup(bpy.types.Operator):
                 bpy.ops.mesh.select_non_manifold()
                 bpy.ops.mesh.delete(type='VERT')
                 bpy.ops.mesh.fill_holes(sides=0)
-        
-            bpy.ops.object.mode_set(mode='EDIT')
+                
+                #fix non planar faces                
+                bpy.ops.mesh.select_all(action='DESELECT')
+                bpy.ops.mesh.vert_connect_nonplanar(angle_limit=0.333)       
+                bpy.ops.mesh.select_all(action='SELECT')
+                context.tool_settings.mesh_select_mode = (False, False, True)
+                bpy.ops.mesh.quads_convert_to_tris(quad_method='BEAUTY', ngon_method='BEAUTY')
             
-            #fix non planar faces
-            bpy.ops.mesh.vert_connect_nonplanar(angle_limit=0.333)       
-            bpy.ops.mesh.select_all(action='SELECT')
-            context.tool_settings.mesh_select_mode = (False, False, True)
-            bpy.ops.mesh.quads_convert_to_tris(quad_method='BEAUTY', ngon_method='BEAUTY')
-            bpy.ops.mesh.select_all(action='DESELECT')
+        #}    
         
-            #test if more non-manifold verts
-            bpy.ops.object.mode_set(mode='OBJECT')
-            me = bpy.context.object.data       
-            bm = bmesh.new()  
-            bm.from_mesh(me)  
-            nmvcount = 0
-            for v in bm.verts:
-                if not v.is_manifold:
-                    nmvcount+=1
-            if nmvcount > 0:
-                #do another pass
-                cleaning = True
-            else:
-                cleaning = False
+        bpy.ops.mesh.select_all(action='DESELECT')
+        bpy.ops.object.mode_set(mode='OBJECT')
             
         return {'FINISHED'}
 
