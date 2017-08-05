@@ -1,6 +1,6 @@
 # BRM REMESH CLEANUP
 
-This script is to be run after applying a remesh modifier on geometry.
+This script is to be executed after applying a remesh modifier on geometry.
 
 It will:
 - Clean up degenerate vertices
